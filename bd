@@ -1,0 +1,61 @@
+-- Задание 1. Вывести имя, фамилию и нынешние должности сотрудников, которые раньше работали на должности с job_id 'ST_CLERK', но уже не работают (таблица JOB_HISTORY).
+SELECT e.first_name, e.last_name, j.job_title
+FROM employees e
+-- Присоединяем таблицу JOBS для получения названия текущей должности сотрудника
+JOIN jobs j ON e.job_id = j.job_id
+WHERE e.employee_id IN (
+    -- Подзапрос: находим всех сотрудников, которые работали на должности 'ST_CLERK' в прошлом
+    SELECT employee_id
+    FROM job_history
+    WHERE job_id = 'ST_CLERK' AND end_date < SYSDATE
+)
+-- Исключаем тех, кто все еще работает на этой должности, то есть у кого есть запись с NULL в поле end_date
+AND e.employee_id NOT IN (
+    SELECT employee_id
+    FROM job_history
+    WHERE job_id = 'ST_CLERK' AND end_date IS NULL
+);
+
+-- Задание 2. Создать функцию, которая возвращает n-е число Фибоначчи.
+CREATE OR REPLACE FUNCTION fibonacci(n IN NUMBER) RETURN NUMBER IS
+    a NUMBER := 0; -- Переменная для первого числа Фибоначчи (0)
+    b NUMBER := 1; -- Переменная для второго числа Фибоначчи (1)
+    temp NUMBER;   -- Вспомогательная переменная для хранения промежуточных значений
+BEGIN
+    IF n <= 0 THEN -- Если n меньше или равно 0, возвращаем 0
+        RETURN 0;
+    ELSIF n = 1 THEN -- Если n равно 1, возвращаем 1
+        RETURN 1;
+    ELSE
+        FOR i IN 2..n LOOP -- Для чисел начиная с 2 до n, выполняем цикл
+            temp := a + b; -- Суммируем два предыдущих числа Фибоначчи
+            a := b;         -- Обновляем a для следующего шага
+            b := temp;      -- Обновляем b для следующего шага
+        END LOOP;
+        RETURN b; -- Возвращаем n-е число Фибоначчи
+    END IF;
+END;
+
+-- Задание 3. Создать процедуру, которая добавляет новый регион в таблицу regions.
+CREATE OR REPLACE PROCEDURE add_region (
+    p_region_name IN VARCHAR2, -- Параметр для названия региона
+    p_region_id IN NUMBER      -- Параметр для ID региона
+) IS
+BEGIN
+    -- Вставляем новый регион в таблицу regions
+    INSERT INTO regions (region_id, region_name)
+    VALUES (p_region_id, p_region_name);
+    COMMIT; -- Подтверждаем изменения, чтобы они стали постоянными
+END;
+
+-- Задание 4. Создать триггер, который при добавлении нового сотрудника или его обновлении проверяет, что зарплата должна быть больше 1000, если она указана.
+CREATE OR REPLACE TRIGGER salary_check
+BEFORE INSERT OR UPDATE ON employees
+-- Триггер будет срабатывать до добавления или обновления строки в таблице employees
+FOR EACH ROW
+BEGIN
+    -- Если новая зарплата не NULL и меньше или равна 1000, генерируем ошибку
+    IF :NEW.salary IS NOT NULL AND :NEW.salary <= 1000 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Зарплата должна быть больше 1000');
+    END IF;
+END;
